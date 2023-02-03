@@ -1,0 +1,1 @@
+SELECT sentence, sentencedescr, obsolete FROM sentences WHERE handled = 1 ORDER BY sentences.sentence ASC;
