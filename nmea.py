@@ -3,26 +3,7 @@ vehicles, buffer, talkers, sentences, satellites = {}, {}, {}, {}, {}
 own = {}
 
 
-class satellites_class():
-    def __init__(self):
-        self.sl = {}
-
-    def modify(self, prn, elevation, azimuth, snr):
-        if not (prn in self.sl):
-            self.sl[prn] = {}
-        self.sl[prn]['elevation'] = elevation
-        self.sl[prn]['azimuth'] = azimuth
-        self.sl[prn]['snr'] = snr
-        self.sl[prn]['last_access'] = helpers.utc_ms()
-
-        pass
-        #         # satelliteID = data[msg_id, ptr]
-        #         # elevation in degrees(-90 to 90)(leading zeros sent)
-        #         # azimuth in degrees to true north(000 to 359)(leading zeros sent)
-        #         # SNR in dB(00-99)(leading zeros sent) more satellite info quadruples like 4-7 n-1) Signal ID(NMEA 4.11) n) checksum
-
-
-sat = satellites_class()
+sat = helpers.satellites_class()
 
 
 def add_warn(v, consolelog=False):
@@ -60,43 +41,13 @@ def handler_vtg(data):  # Track made good and Ground speed
 
 
 def handler_vdm(data):  # Track made good and Ground speed
-    def decode_vdm(data, pad):
-        result = bytearray()
-        accum = 0
-        shift = 10
-        for ch in data:
-            code = ord(ch)-48
-            if code > 40:
-                code -= 8
-            accum = accum | (code << shift)
-            shift -= 6
-            if shift <= 0:
-
-                print(f'add: {accum >> 8}')
-                result.append(accum >> 8)
-                accum = (accum & 0xFF) << 8
-                shift += 8
-
-        shift -= int(pad)
-        if shift < 8:
-            result.append(accum >> 8)
-        return result
-
-    def get_int(data, start, len):
-        pass
-
-    def get_str(data, start, len):
-        pass
-
-    def get_float(data, start, len, delitimer):
-        pass
 
     print(f'VDM: {data}')
 
     buff = check_buff(message_type='vdm', msg_data=data[4:7], msg_total=data[1], msg_num=data[2], group_id=data[3])
     if not buff['data_ok']:
         return
-    data = bytearray()
+    bitcollector = helpers.bit_collector()
     channel = buff['data'][1][0]
     channel_diff_warn = False
     for c in buff['data']:
@@ -106,12 +57,12 @@ def handler_vdm(data):  # Track made good and Ground speed
             if not channel_diff_warn:
                 add_warn('VGM: Channel differs')
             channel_diff_warn = True
-
+        bitcollector.decode_vdm(data=buff['data'][c][1], pad=buff['data'][c][2])
         # append decoded data
-        app = decode_vdm(data=buff['data'][c][1], pad=buff['data'][c][2])
-        for c in app:
-            print(c)
-        data.extend(app)
+        # app = decode_vdm(data=buff['data'][c][1], pad=buff['data'][c][2])
+        # for c in app:
+        #     print(c)
+        # data.extend(app)
 
 
 def handler_gsa(data):  # GPS DOP and active satellites

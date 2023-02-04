@@ -5,6 +5,11 @@ import os
 import time
 import ais_db
 import nmea
+import helpers
+
+bc = helpers.bit_collector()
+bc.push(0b011011, 6)
+bc.push(0b101101, 6)
 
 DATABASE = 'C:\\ais\\ais.db'
 
