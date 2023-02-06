@@ -7,10 +7,6 @@ import ais_db
 import nmea
 import helpers
 
-bc = helpers.bit_collector()
-bc.push(0b011011, 6)
-bc.push(0b101101, 6)
-
 DATABASE = 'C:\\ais\\ais.db'
 
 last_msg_id = 0
@@ -53,7 +49,7 @@ try:
         c.close()
 
     # parse data
-
+    count = 0 
     conn.row_factory = ais_db.make_raw
     c = conn.cursor()
     try:
@@ -63,8 +59,10 @@ try:
             if row == None:
                 break
             nmea.parse_nmea(row)
+            count += 1
     finally:
         c.close()
+        print(f'Processed {count} record(s)')
 except:
     print('Error occured')
     print('-'*80)

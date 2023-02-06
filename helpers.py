@@ -1,6 +1,11 @@
 import re
 import time
 
+bits, c, b = [],  32, 1
+while c > 0:
+    bits.append(b)
+    b <<= 1
+    c -= 1
 re_float = re.compile(r'[-+]?([0-9]*[.])?[0-9]+([eE][-+]?\d+)?')
 
 
@@ -37,67 +42,69 @@ class satellites_class():
         self.sl[prn]['last_access'] = utc_ms()
 
 
-mask, bits, v, c, b = [], [], 0, 32, 1
-while c > 0:
-    mask.append(v)
-    v = (v << 1) | 1
-    bits.append(b)
-    b <<= 1
-    c -= 1
-
-
 class bit_collector():
     def __init__(self):
-        self.raw_len = 10
-        self.data = bytearray(self.raw_len)
+        self._buff_len = 150  # bytes
+        self.buff = bytearray(self._buff_len)
         self.clear()
 
     def clear(self):
         self.length = 0
-        for c in range(len(self.data)):
-            self.data[c] = 0
+        for c in range(self._buff_len):
+            self.buff[c] = 0
 
     def push(self, data, length):
         while length > 0:
-            if data & bits[length]:
-                self.data[self.length // 8] |= bits[self.length % 8]
+            if data & bits[length-1]:
+                self.buff[self.length >> 3] |= bits[self.length & 7 ^ 7]
             length -= 1
             self.length += 1
 
-    def get_int(self, start, length):
+    def get_int(self, start: int, length: int, signed: bool = False):
         result = 0
-        while length > 0:
-            if self.data[start // 8] & bits[start % 8]:
-                result |= 1
-            result <<= 1
-            length -= 1
-            start += 1
+        length_counter = length
 
-        pass
+        while length_counter > 0:
+            result <<= 1
+            if self.buff[start >> 3] & bits[start & 7 ^ 7]:
+                result |= 1
+            length_counter -= 1
+            start += 1
+        # sign = bits[length-1]
+        if signed and (result & bits[length-1]) != 0:
+            result = -(result ^ (bits[length]-1))
+
+        return result
+
+    def get_str(self,  start: int, length: int):
+        # print('----------------------------')
+        char_lut = '@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_ !"#$%&\\()*+,-./0123456789:;<=>?'
+        result = ''
+        while length > 0:
+            code = self.get_int(start, 6)
+            # print(code)
+            if code == 0:  # or code==32:
+                break
+            result += char_lut[code]
+            start += 6
+            length -= 1
+        return result
 
     def decode_vdm(self, data, pad):
+        # print(f'datalen={len(data)} (data={data})')
         for ch in data:
             code = ord(ch)-48
             if code > 40:
                 code -= 8
             self.push(code, 6)
+        self.length -= int(pad)
+        # print(f'char={ch}\tcode={code}\tbufflen={self.length}')
 
-    def get_str(data, start, len):
-        pass
 
-    def get_float(data, start, len, delitimer):
-        pass
+# def pretty_print(obj):
+#     def collect_keys_length(depth):
+#         if depth in 
+#         for k in 
 
-    # def push(self, data, length):
-    #     while length > 0:
-    #         bits_free = 8 - (self.length % 8)  # free bits count in last byte
-    #         bits_to_insert = min(bits_free, length)  # how many bits we can insert in last byte
 
-    #         # clipped_len = length-bits_to_insert
-    #         clipped_bits = data >> (length-bits_to_insert)  # clip data bits to fit
-    #         data_to_paste = clipped_bits << (bits_free - bits_to_insert)  # move clipped bits to align free space on the left
-    #         self.data[self.length // 8] |= data_to_paste  # put data to array
-
-    #         self.length += bits_to_insert
-    #         length -= bits_to_insert
-    #         data &= mask[length]
+#     keys_length=[]

@@ -6,7 +6,7 @@ import time
 
 
 DATABASE = 'C:\\ais\\ais.db'
-SAMPLE_DATA = 'C:\\ais\\example\\nmea_sample1.txt'
+SAMPLE_DATA = 'C:\\ais\\example\\nmea_sample2.txt'
 SQL_PATH = 'C:\\ais\\my\\sql'
 MAX_BULK = 100
 
@@ -43,6 +43,8 @@ def check_params(params, forced):
 
 
 try:
+    print('Import sample data started...')
+    count = 0
     conn = sqlite3.connect(DATABASE)
     exec_sql(sqlfilename='make_rawdata_table.sql', script=True)
     samples = io.open(SAMPLE_DATA, mode='r', encoding='utf-8')
@@ -60,10 +62,12 @@ try:
                 'data': data,
                 'tm': time.time_ns()//1000000
             })
-        if check_params(params, forced=False):
-            params = []
+            count += 1
+            if check_params(params, forced=False):
+                params = []
 
     check_params(params, forced=True)
+    print(f'Import sample data finished. Total records: {count}')
 
 except:
     print('Error occured')
