@@ -63,6 +63,7 @@ try:
     finally:
         c.close()
         print(f'Processed {count} record(s)')
+    # helpers.wr_ex(nmea.vessels)
 except:
     print('Error occured')
     print('-'*80)

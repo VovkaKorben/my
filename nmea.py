@@ -67,16 +67,193 @@ def handler_vtg(data):
     pass
 
 
+# Field	Len	Description	Member	T	Units
+# 0-5	6	Message Type	type	u	Constant: 1-3
+# 06.июл	2	Repeat Indicator	repeat	u	Message repeat count
+# авг.37	30	MMSI	mmsi	u	9 decimal digits
+# 38-41	4	Navigation Status	status	e	See "Navigation Status"
+# 42-49	8	Rate of Turn(ROT)	turn	I3	See below
+# 50-59	10	Speed Over Ground(SOG)	speed	U1	See below
+# 60-60	1	Position Accuracy	accuracy	b	See below
+# 61-88	28	Longitude	lon	I4	Minutes/10000 (see below)
+# 89-115	27	Latitude	lat	I4	Minutes/10000 (see below)
+# 116-127	12	Course Over Ground(COG)	course	U1	Relative to true north, to 0.1 degree precision
+# 128-136	9	True Heading(HDG)	heading	u	0 to 359 degrees, 511 = not available.
+# 137-142	6	Time Stamp	second	u	Second of UTC timestamp
+# 143-144	2	Maneuver Indicator	maneuver	e	See "Maneuver Indicator"
+# 145-147	3	Spare		x	Not used
+# 148-148	1	RAIM flag	raim	b	See below
+# 149-167	19	Radio status	radio	u	See below
+
 vdm_process = {1: [  # Types 1, 2 and 3: Position Report Class A
-               ['repeat', 6, 2, 'u'],
-               ['lon', 61,  28, 'lon'],
-               ['lat', 89, 27, 'lat'],
-               ],
-               2: [  # Type 4: Base Station Report
-               ['repeat', 6, 2, 'u'],
-               ['lon', 61,  28, 'lon'],
-               ['lat', 89, 27, 'lat'],
-               ], }
+    ['repeat', 6, 2, 'u'],
+    ['lon', 61,  28],
+    ['lat', 89, 27],
+    ['turn', 42, 8],
+    ['speed', 50, 10, 'u'],
+    ['accuracy', 60, 1, 'u'],
+    ['course', 116, 12, 'u-1'],
+    ['heading', 128, 9],
+    ['maneuver', 143, 2, 'u'],
+    ['raim', 148, 1, 'u'],
+    ['radio', 149, 19, 'u'],
+    ['second', 137, 6, 'u'],
+],
+    2: [  # Types 1, 2 and 3: Position Report Class A
+    ['repeat', 6, 2, 'u'],
+    ['lon', 61,  28],
+    ['lat', 89, 27],
+    ['turn', 42, 8],
+    ['speed', 50, 10, 'u'],
+    ['accuracy', 60, 1, 'u'],
+    ['course', 116, 12, 'u-1'],
+    ['heading', 128, 9],
+    ['maneuver', 143, 2, 'u'],
+    ['raim', 148, 1, 'u'],
+    ['radio', 149, 19, 'u'],
+    ['second', 137, 6, 'u'],
+],
+    3: [  # Types 1, 2 and 3: Position Report Class A
+    ['repeat', 6, 2, 'u'],
+    ['lon', 61,  28],
+    ['lat', 89, 27],
+    ['turn', 42, 8],
+    ['speed', 50, 10, 'u'],
+    ['accuracy', 60, 1, 'u'],
+    ['course', 116, 12, 'u-1'],
+    ['heading', 128, 9],
+    ['maneuver', 143, 2, 'u'],
+    ['raim', 148, 1, 'u'],
+    ['radio', 149, 19, 'u'],
+    ['second', 137, 6, 'u'],
+],
+
+
+
+    4: [  # Type 4: Base Station Report
+    ['repeat', 6, 2, 'u'],
+    ['year', 38,  14, 'u'],
+    ['month', 52, 4, 'u'],
+    ['day', 56, 5, 'u'],
+    ['hour', 61, 5, 'u'],
+    ['minute', 66, 6, 'u'],
+    ['second', 72, 6, 'u'],
+    ['accuracy', 78, 1, 'u'],
+    ['lon', 79,  28],
+    ['lat', 107, 27],
+    ['epfd', 134, 4, 'u'],
+    ['raim', 148, 1, 'u'],
+    ['radio', 149, 19, 'u'],
+
+],
+
+    5: [  # Type 5: Static and Voyage Related Data
+    ['repeat', 6, 2, 'u'],
+    ['ais_version', 38,  2, 'u'],
+    ['imo', 40, 30, 'u'],
+    ['callsign', 70, 7, 's'],
+    ['shipname', 112, 20, 's'],
+    ['shiptype', 232, 8, 'u'],
+    ['to_bow', 240, 9, 'u'],
+    ['to_stern', 249, 9, 'u'],
+    ['to_port', 258, 6, 'u'],
+    ['to_starboard', 264, 6, 'u'],
+    ['epfd', 270, 4, 'u'],
+    ['month', 274, 4, 'u'],
+    ['day', 278, 5, 'u'],
+    ['hour', 283, 5, 'u'],
+    ['minute', 288, 6, 'u'],
+    ['draught', 294, 8, 'u-1'],
+    ['destination', 302, 20, 's'],
+    ['dte', 422, 1, 'u'],
+],
+    18: [  # Type 18: Standard Class B CS Position Report
+    ['repeat', 6, 2, 'u'],
+    ['speed', 46, 10, 'u'],
+    ['accuracy', 56, 1, 'u'],
+    ['lon', 57,  28],
+    ['lat', 85, 27],
+    ['course', 112, 12, 'u-1'],
+    ['heading', 124, 9],
+    ['second', 133, 6, 'u'],
+    ['cs', 141, 1, 'u'],
+    ['display', 142, 1, 'u'],
+    ['dsc', 143, 1, 'u'],
+    ['band', 144, 1, 'u'],
+    ['msg22', 145, 1, 'u'],
+    ['assigned', 146, 1, 'u'],
+    ['raim', 147, 1, 'u'],
+    ['radio', 148, 20, 'u'],
+
+],
+
+    19: [  # Type 19: Extended Class B CS Position Report
+    ['repeat', 6, 2, 'u'],
+    ['speed', 46, 10, 'u'],
+    ['accuracy', 56, 1, 'u'],
+    ['lon', 57,  28],
+    ['lat', 85, 27],
+    ['course', 112, 12, 'u-1'],
+    ['heading', 124, 9],
+    ['second', 133, 6, 'u'],
+    ['shipname', 143, 20, 's'],
+    ['shiptype', 263, 8, 'u'],
+    ['to_bow', 271, 9, 'u'],
+    ['to_stern', 280, 9, 'u'],
+    ['to_port', 289, 6, 'u'],
+    ['to_starboard', 295, 6, 'u'],
+    ['epfd', 301, 4, 'u'],
+    ['raim', 305, 1, 'u'],
+    ['dte', 306, 1, 'u'],
+    ['assigned', 307, 1, 'u'],
+],
+    21: [  # Type 21: Aid-to-Navigation Report
+    ['repeat', 6, 2, 'u'],
+    ['aid_type', 38, 5, 'u'],
+    ['name', 43, 20, 's'],
+    ['accuracy', 163, 1, 'u'],
+    ['lon', 164,  28],
+    ['lat', 192, 27],
+    ['to_bow', 219, 9, 'u'],
+    ['to_stern', 228, 9, 'u'],
+    ['to_port', 237, 6, 'u'],
+    ['to_starboard', 243, 6, 'u'],
+    ['epfd', 249, 4, 'u'],
+    ['second', 253, 6, 'u'],
+    ['off_position', 259, 1, 'u'],
+    ['raim', 268, 1, 'u'],
+    ['virtual_aid', 269, 1, 'u'],
+    ['assigned', 270, 1, 'u'],
+],
+
+    24: [  # Type 24: Static Data Report (Equivalent of a Type 5 message for ships using Class B equipment.)
+        ['repeat', 6, 2, 'u'],
+        ['partno', 38,  2, 'u'],
+],
+    # ----- no nav info
+    16: [  # Type 16: Assignment Mode Command
+    ['repeat', 6, 2, 'u'],
+],
+    17: [  # Type 17: DGNSS Broadcast Binary Message
+    ['repeat', 6, 2, 'u'],
+],
+    20: [  # Type 20 Data Link Management Message
+    ['repeat', 6, 2, 'u'],
+],
+
+    # ----- binary
+    6: [  # Type 6: Binary Addressed Message
+    ['repeat', 6, 2, 'u'],
+],
+    8: [  # Type 8: Binary Broadcast Message
+    ['repeat', 6, 2, 'u'],
+],
+
+    # ----- datetime operations
+    10: [  # Type 10: UTC/Date Inquiry
+    ['repeat', 6, 2, 'u'],
+],
+}
 
 
 def handler_vdm(data):
@@ -88,6 +265,25 @@ def handler_vdm(data):
     def field_lat(field):
         tmp = bitcollector.get_int(field[1], field[2], signed=True)
         return None if tmp == 0x3412140 else tmp/600000
+
+    def field_turn(field):
+        tmp = bitcollector.get_int(field[1], field[2], signed=True)
+        return tmp
+
+    # def field_course(field):
+    #     return bitcollector.get_int(field[1], field[2])/10
+
+    def field_heading(field):
+        tmp = bitcollector.get_int(field[1], field[2])
+        return None if tmp == 511 else tmp
+
+    def field_speed(field):
+        tmp = bitcollector.get_int(field[1], field[2])
+        return None if tmp == 1023 else tmp*0.1852  # knots => in km/h
+
+    # def field_draught(field):
+    #     return bitcollector.get_int(field[1], field[2])/10
+
     # print(f'VDM: {data}')
 
     # collect messages
@@ -123,9 +319,9 @@ def handler_vdm(data):
 
         for field in vdm_process[msg_id]:
 
-            # for complex fields
-            if len(field[3]) >= 3:
-                method_name = f'field_{field[3]}'
+            # field has named handler
+            if len(field) <= 3:
+                method_name = f'field_{field[0]}'
                 method = possibles.get(method_name)
                 if not method:
                     add_warn(f'No handler for field \'{field[0]}\', expected \'{method_name}\'', consolelog=True)
@@ -133,10 +329,22 @@ def handler_vdm(data):
                     vessels[mmsi][field[0]] = method(field)
 
             # for simple fields
-            elif field[3] == 'u':
-                vessels[mmsi][field[0]] = bitcollector.get_int(field[1], field[2])
             else:
-                add_warn(f'No type defined for field \'{field[0]}\'', consolelog=True)
+                if len(field[3]) > 1:  # has a multiplier or divider
+                    mod = pow(10, int(field[3][2:]))
+                    if field[3][1] == '-':
+                        mod = 1/mod
+                else:
+                    mod = None
+
+                if field[3][0] == 'u':
+                    vessels[mmsi][field[0]] = bitcollector.get_int(field[1], field[2])
+                    if not (mod is None):
+                        vessels[mmsi][field[0]] *= mod
+                elif field[3][0] == 's':
+                    vessels[mmsi][field[0]] = bitcollector.get_str(field[1], field[2])
+                else:
+                    add_warn(f'No type defined for field \'{field[0]}\'', consolelog=True)
             # print(field[0])
 
     #         possibles = globals().copy()
@@ -151,6 +359,7 @@ def handler_vdm(data):
 
     else:
         add_warn(f'VDM: unknown msgID={msg_id}')
+    pass
 
 
 def handler_gsa(data):  # GPS DOP and active satellites
@@ -215,26 +424,27 @@ def parse_nmea(value):
 
     TalkerID = a[0][:-3].upper()
     MessageType = a[0][-3:].upper()
+    if len(TalkerID) > 0:
+        if TalkerID[0].upper() == 'P':
+            # proprietary talker
+            pass
+        elif not (TalkerID in talkers):
+            add_warn(f'Unknown TalkerID: {TalkerID}')
+        else:
+            if not (MessageType in sentences):
+                add_warn(f'Unknown MessageType: {MessageType}', consolelog=True)
+            # else:
+            #     print(f'Message ({MessageType}): {sentences[MessageType]["sentencedescr"]}')
 
-    if not (TalkerID in talkers):
-        add_warn(f'Unknown TalkerID: {TalkerID}')
-    # else:
-    #     print(f'Talker ({TalkerID}): {talkers[TalkerID]["talkerdescr"]}')
-
-    if not (MessageType in sentences):
-        add_warn(f'Unknown MessageType: {MessageType}', consolelog=True)
-    # else:
-    #     print(f'Message ({MessageType}): {sentences[MessageType]["sentencedescr"]}')
-
-    handler_name = f'handler_{MessageType.lower()}'  # set by the command line options
-    possibles = globals().copy()
-    possibles.update(locals())
-    method = possibles.get(handler_name)
-    if not method:
-        add_warn(f'No handler for {MessageType}', consolelog=True)
-        # print(f'No handler for {MessageType}')
-        # raise NotImplementedError("Method %s not implemented" % handler_name)
-    else:
-        method(a)
+            handler_name = f'handler_{MessageType.lower()}'  # set by the command line options
+            possibles = globals().copy()
+            possibles.update(locals())
+            method = possibles.get(handler_name)
+            if not method:
+                add_warn(f'No handler for {MessageType}', consolelog=True)
+                # print(f'No handler for {MessageType}')
+                # raise NotImplementedError("Method %s not implemented" % handler_name)
+            else:
+                method(a)
 
     return

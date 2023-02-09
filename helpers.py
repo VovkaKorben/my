@@ -1,6 +1,7 @@
 import re
 import time
-
+import xlsxwriter
+import os
 bits, c, b = [],  32, 1
 while c > 0:
     bits.append(b)
@@ -103,8 +104,41 @@ class bit_collector():
 
 # def pretty_print(obj):
 #     def collect_keys_length(depth):
-#         if depth in 
-#         for k in 
+#         if depth in
+#         for k in
 
 
 #     keys_length=[]
+
+def wr_ex(vessels):
+    filename = "vessels.xlsx"
+
+    mmsi_collect = {}
+    col_names = {}
+
+    if os.path.exists(filename):
+        os.remove(filename)
+
+    workbook = xlsxwriter.Workbook(filename)
+    worksheet = workbook.add_worksheet()
+
+    row = 1
+    for mmsi in vessels:
+
+        if not (mmsi in mmsi_collect):
+            mmsi_collect[mmsi] = len(mmsi_collect)
+            worksheet.write_string(mmsi_collect[mmsi]+1, 0,str( mmsi))
+        row = mmsi_collect[mmsi]+1
+
+        for k in vessels[mmsi]:
+            if not (k in col_names):
+                col_names[k] = len(col_names)
+                worksheet.write_string (0, col_names[k]+1, str(k))
+            
+            worksheet.write_string(row, col_names[k]+1, str(vessels[mmsi][k]))
+        # worksheet.write(row, column, item)
+
+        # incrementing the value of row by one with each iterations.
+        # row += 1
+
+    workbook.close()

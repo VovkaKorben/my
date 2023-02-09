@@ -6,7 +6,8 @@ import time
 
 
 DATABASE = 'C:\\ais\\ais.db'
-SAMPLE_DATA = 'C:\\ais\\example\\nmea_sample2.txt'
+# SAMPLE_DATA = 'C:\\ais\\example\\nmea_sample2.txt'
+SAMPLE_DATA = 'C:\\ais\\example\\sd.txt'
 SQL_PATH = 'C:\\ais\\my\\sql'
 MAX_BULK = 100
 
