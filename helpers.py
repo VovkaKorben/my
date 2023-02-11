@@ -2,12 +2,34 @@ import re
 import time
 import xlsxwriter
 import os
+import math
 bits, c, b = [],  32, 1
 while c > 0:
     bits.append(b)
     b <<= 1
     c -= 1
 re_float = re.compile(r'[-+]?([0-9]*[.])?[0-9]+([eE][-+]?\d+)?')
+PI = 3.14159265359
+
+
+def latlon2meter(lon, lat):
+    print(f'lon: {lon}, lat: {lat}')
+    x = (lon * 20037508.34) / 180
+    y = math.log(math.tan(((90 + lat) * PI) / 360)) / (PI / 180)
+    y = (y * 20037508.34) / 180
+    return [x, y]
+
+
+ y = math.log(math.tan(((90 + lat) * PI) / 360)) / (PI / 180)
+
+# backward (in JS)
+# function epsg3857toEpsg4326(pos) {
+#     let x = pos[0]
+#     let y = pos[1]
+#     x = (x * 180) / 20037508.34
+#     y = (y * 180) / 20037508.34
+#     y = (Math.atan(Math.pow(Math.E, y * (Math.PI / 180))) * 360) / Math.PI - 90
+#   return [x, y]; }
 
 
 def is_int(s):
@@ -127,14 +149,14 @@ def wr_ex(vessels):
 
         if not (mmsi in mmsi_collect):
             mmsi_collect[mmsi] = len(mmsi_collect)
-            worksheet.write_string(mmsi_collect[mmsi]+1, 0,str( mmsi))
+            worksheet.write_string(mmsi_collect[mmsi]+1, 0, str(mmsi))
         row = mmsi_collect[mmsi]+1
 
         for k in vessels[mmsi]:
             if not (k in col_names):
                 col_names[k] = len(col_names)
-                worksheet.write_string (0, col_names[k]+1, str(k))
-            
+                worksheet.write_string(0, col_names[k]+1, str(k))
+
             worksheet.write_string(row, col_names[k]+1, str(vessels[mmsi][k]))
         # worksheet.write(row, column, item)
 
