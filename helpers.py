@@ -10,17 +10,28 @@ while c > 0:
     c -= 1
 re_float = re.compile(r'[-+]?([0-9]*[.])?[0-9]+([eE][-+]?\d+)?')
 PI = 3.14159265359
+def is_intersect(rect1,rect2): 
+    return ((rect1[0] < rect2[2]) and (rect1[2] > rect2[0]) and (rect1[3] > rect2[1]) and (rect1[1] < rect2[3]))
 
 
-def latlon2meter(lon, lat):
-    print(f'lon: {lon}, lat: {lat}')
-    x = (lon * 20037508.34) / 180
-    y = math.log(math.tan(((90 + lat) * PI) / 360)) / (PI / 180)
-    y = (y * 20037508.34) / 180
+def sign(a):
+    if a > 0:
+        return 1
+    elif a < 0:
+        return -1
+    else:
+        return 0
+
+
+def latlon2meter(coords): # in format (lon,lat)
+    x = (coords[0] * 20037508.34) / 180
+    if abs(coords[1]) >= 85.051129:  # The value 85.051129° is the latitude at which the full projected map becomes a square
+        y = sign(coords[1]) * abs(coords[1])*111.132952777
+    else:
+        y = math.log(math.tan(((90 + coords[1]) * PI) / 360)) / (PI / 180)
+        y = (y * 20037508.34) / 180
     return [x, y]
 
-
- y = math.log(math.tan(((90 + lat) * PI) / 360)) / (PI / 180)
 
 # backward (in JS)
 # function epsg3857toEpsg4326(pos) {

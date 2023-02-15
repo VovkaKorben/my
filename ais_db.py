@@ -4,6 +4,18 @@ import io
 SQL_PATH = 'C:\\ais\\my\\sql'
 
 
+def cache_queries():
+    SQL_PATH = 'C:\\ais\\my\\sql\\main'
+    global sql
+    sql = {'get_shapes': 'get_shapes.sql',
+           'get_points': 'get_points.sql',
+           }
+    for s in sql:
+        filename = sql[s]
+        sqlfilepath = os.path.join(SQL_PATH, filename)
+        sql[s] = read_query(sqlfilepath)
+
+
 def make_raw(cursor, row):
     return row[0]
 
@@ -38,5 +50,5 @@ def exec_sql(conn, sqlfilename=None, sqlstring=None, script=False, params=[]):  
 
 
 def sqlite_trace(value):
-    return
-    # print(value)
+    # return
+    print(value)

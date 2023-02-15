@@ -9,6 +9,9 @@ import helpers
 
 DATABASE = 'C:\\ais\\ais.db'
 
+
+
+
 last_msg_id = 0
 read_sql = ais_db.read_query('read_rawdata.sql')
 
@@ -49,7 +52,7 @@ try:
         c.close()
 
     # parse data
-    count = 0 
+    count = 0
     conn.row_factory = ais_db.make_raw
     c = conn.cursor()
     try:
