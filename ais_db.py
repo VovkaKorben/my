@@ -3,6 +3,13 @@ import os
 import io
 SQL_PATH = 'C:\\ais\\my\\sql'
 
+def connect_db(DATABASE:str):
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory =make_dicts
+    conn.set_trace_callback(sqlite_trace)
+    return conn
+
+
 
 def cache_queries():
     SQL_PATH = 'C:\\ais\\my\\sql\\main'
@@ -50,5 +57,5 @@ def exec_sql(conn, sqlfilename=None, sqlstring=None, script=False, params=[]):  
 
 
 def sqlite_trace(value):
-    # return
-    print(value)
+    return
+    # print(value)
