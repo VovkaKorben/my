@@ -8,6 +8,14 @@ RECT_INCLUDE = 0
 RECT_INTERSECT = 1
 
 
+def sign(x):
+    if x > 0:
+        return 1
+    if x < 0:
+        return -1
+    return 0
+
+
 def check_rect_intersect(rect0, rect1):
     return ((rect0[0] <= rect1[2]) and (rect0[2] >= rect1[0]) and (rect0[3] >= rect1[1]) and (rect0[1] <= rect1[3]))
 
