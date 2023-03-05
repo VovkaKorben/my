@@ -25,14 +25,6 @@ LOG_FILE = 'C:\\ais\\my\\osm.txt'
 EXTRACT_REGION = (18.746602417457805, 59.09602946996111, 21.85573326803449, 61.03075261195945)
 
 
-def write_log(msg, console=False, raiseexception=False):
-    logfile.write(msg)
-    logfile.flush()
-    if console:
-        print(msg)
-    if raiseexception:
-        raise Exception(msg)
-
 
 def exec_sql(sql, params=[]):
     c = conn.cursor()

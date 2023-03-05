@@ -11,7 +11,8 @@ import math
 import copy
 import yaml
 import json
-
+# import logger
+import pyperclip
 clBlue = (0, 0, 255)
 clYellow = (255, 255, 0)
 clDkYellow = (16, 16, 0, 50)
@@ -21,7 +22,9 @@ clRed = (128, 0, 0)
 clLtRed = (255, 0, 0)
 clLime = (0, 255, 0)
 clMaroon = (28, 0, 28)
-
+clSea = (60, 107, 180)
+clLand = (179, 136, 76)
+CENTER_SIZE = 4
 
 # shapes collector
 SHAPES_UPDATE = 5*60*1000  # 5 min for update shapes
@@ -30,18 +33,24 @@ DATABASE = 'C:\\ais\\ais.db'
 
 # display
 # ZOOM_RANGE = (1, 50, 100, 250, 500, 1000, 2000, 3000, 5000)  # , 10000, 15000, 20000, 50000)
-ZOOM_RANGE = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-zoom_level = 0  # len(ZOOM_RANGE)-1
-shapes = {}
+ZOOM_RANGE = (0.1, 0.2, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+ZOOM_INIT = 3
+
 
 # math related
-VIEW_WIDTH, VIEW_HEIGHT = 480, 320
+VIEW_WIDTH, VIEW_HEIGHT = 300, 200
 CENTER_X, CENTER_Y = VIEW_WIDTH//2, VIEW_HEIGHT//2
 VIEWBOX_RECT = (-CENTER_X, -CENTER_Y, VIEW_WIDTH-CENTER_X-1, VIEW_HEIGHT-CENTER_Y-1)
 
 # CENTER_X, CENTER_Y = 2,3
 CORNERS_X_INDEX = (MINX, MINX, MAXX, MAXX)
 CORNERS_Y_INDEX = (MINY, MAXY, MINY, MAXY)  # indexes
+
+my_xy, my_angle, zoom_level = [0.0, 0.0], 0.0, 4
+shapes = {}
+scanlines = []
+for y in range(VIEW_HEIGHT):
+    scanlines.append([])
 
 
 # framebuff = []
@@ -52,66 +61,9 @@ CORNERS_Y_INDEX = (MINY, MAXY, MINY, MAXY)  # indexes
 #     framebuff.append(row)
 
 
-my_xy = [0.0, 0.0]
-my_angle = 0  # degrees
-ANGLE_DELTA = 5.0
+ANGLE_DELTA = 1.0
 MOVE_DELTA = 1
 KEYBOARD_DELAY = 120
-
-
-def draw_line(p0, p1, color):
-
-    x, y = p0[0], p0[1]
-    error = 0
-
-    a = p1[1]-p0[1]
-    b = p0[0]-p1[0]
-    dx, dy = -geometry.sign(b), geometry.sign(a)
-
-    if (b == 0):  # vertical
-        while y != p1[1]:
-            plot(x, y, color)
-            y += dy
-    elif (a == 0):  # horizontal
-        while x != p1[0]:
-            plot(x, y, color)
-            x += dx
-    # elif (abs(a) == abs(b)):  # diagonal
-    #     pass
-    # else:
-
-        while x != p1[0] or y != p1[1]:
-            plot(x, y, color)
-
-            ex = error + a*dx
-            ey = error + b*dy
-
-            if abs(ex) < abs(ey):
-                x += dx
-                error = ex
-            else:
-                y += dy
-                error = ey
-
-    plot(x, y, color)
-
-
-def plot(x, y, color):
-    """
-    input coordinates relative to CENTER
-    """
-
-    # print(f'plot ({x},{y}): {color}', end='...')
-    if x > VIEWBOX_RECT[MAXX] or x < VIEWBOX_RECT[MINX] or y > VIEWBOX_RECT[MAXY] or y < VIEWBOX_RECT[MINY]:
-        # print('skipped')
-        return
-
-    x += CENTER_X
-    y += CENTER_Y
-    # print (f'plot ({x},{y}): {color}')
-    pixarr[x][y] = color
-    # framebuff[y][x] = color
-    # print('OK')
 
 
 def garbage_shapes():  # remove old shapes
@@ -229,57 +181,6 @@ def calc_visible():
         # print(f'box: {new_box})')
         return new_box
 
-    def get_scanline(recid, scanline_no):
-        def partition(low, high):
-            pivot = arr[high]
-            i = low-1
-            for j in range(low, high):
-                if arr[j] < pivot:
-                    i += 1
-                    arr[i], arr[j] = arr[j], arr[i]
-            arr[i + 1], arr[high] = arr[high], arr[i + 1]
-            return (i + 1)
-
-        def quickSort(low, high):
-            if low < high:
-                pi = partition(low, high)
-                quickSort(low, pi - 1)
-                quickSort(pi + 1, high)
-
-        arr = []
-
-        scanline_left = (shapes[recid]['rotated'][MINX]-1, scanline_no+0.5)
-        scanline_right = (shapes[recid]['rotated'][MAXX]+1, scanline_no+0.5)
-        for path in shapes[recid]['work']:
-            prev_point = path[-1]
-            for point in path:
-                a = geometry.line_intersect(prev_point, point, scanline_left, scanline_right)
-                if len(a) > 0:
-                    arr.append(a[0])
-                prev_point = point
-        quickSort(0, len(arr)-1)
-        return arr
-
-    def put_scanline(scanline_no, arr):
-        # print(f'put_scanline #{scanline_no}: {arr}')
-        for pair_no in range(0, len(arr), 2):
-            x1, x2 = arr[pair_no], arr[pair_no+1]
-
-            if (x1 >= VIEWBOX_RECT[MINX] and x1 <= VIEWBOX_RECT[MAXX]) or (x2 >= VIEWBOX_RECT[MINX] and x2 <= VIEWBOX_RECT[MAXX]):
-                if x1 < VIEWBOX_RECT[MINX]:
-                    x1 = VIEWBOX_RECT[MINX]
-                if x2 > VIEWBOX_RECT[MAXX]:
-                    x2 = VIEWBOX_RECT[MAXX]
-                # put int part
-                x1i, x2i = round(x1), round(x2)
-                for x in range(x1i, x2i+1):
-                    plot(x, scanline_no, clMaroon)
-                # for pix in range(math.floor(x1), math.ceil(x2)):
-                #     ptr = pix+CENTER_X+VIEW_WIDTH*scanline_no
-                #     framebuff[ptr] = 0xFF
-                #     print(f'set pix {pix}x{scanline_no} (ptr:{ptr})')
-                # put fractional part (for antialias)
-
     # prepare
     # clear_framebuff()
 
@@ -297,17 +198,146 @@ def calc_visible():
             continue
         shapes[recid]['used'] = True
 
-        minY = math.floor(max(new_box[MINY], VIEWBOX_RECT[MINY]))
-        maxY = math.ceil(min(new_box[MAXY], VIEWBOX_RECT[MAXY]))
-
-        for scanline in range(minY, maxY+1):
-            isec_arr = get_scanline(recid, scanline)
-            put_scanline(scanline, isec_arr)
-
-    plot(0, 0, clLime)
-
 
 def draw_screen():
+
+    def draw_line(p0, p1, color):
+
+        print(f'draw_line {path[point_id-1]} -> {path[point_id]}')
+        x, y = p0[0], p0[1]
+        error = 0
+
+        a = p1[1]-p0[1]
+        b = p0[0]-p1[0]
+        dx, dy = -geometry.sign(b), geometry.sign(a)
+
+        if (b == 0):  # vertical
+            while y != p1[1]:
+                plot(x, y, color)
+                y += dy
+        elif (a == 0):  # horizontal
+            while x != p1[0]:
+                plot(x, y, color)
+                x += dx
+        # elif (abs(a) == abs(b)):  # diagonal
+        #     pass
+        # else:
+
+            while x != p1[0] or y != p1[1]:
+                plot(x, y, color)
+
+                ex = error + a*dx
+                ey = error + b*dy
+
+                if abs(ex) < abs(ey):
+                    x += dx
+                    error = ex
+                else:
+                    y += dy
+                    error = ey
+
+        plot(x, y, color)
+
+  
+
+    def segment_intersect(segment_start: dict, segment_end: dict, scanline_min: float, scanline_max: float, scanline_y: float):
+        """
+        returns:
+        [-2] = segment touches with min or max value with scanline
+        [-1] = segment is parallel with scanline
+        [0] = not intersect
+        [1,x] = intersect in X point
+        """
+        # check Y-bound
+        # if (not (main_rect[MAXX] <= test_rec[MINX] or main_rect[MINX] >= test_rec[MAXX] or main_rect[MINY] >= test_rec[MAXY] or main_rect[MAXY] <= test_rec[MINY]):
+
+        # check parallel
+        segment_dy = segment_end[1]-segment_start[1]
+        if geometry.is_zero(segment_dy):
+            return [-1]
+
+        # check min/max
+        if geometry.is_zero(segment_start[1]-scanline_y) or geometry.is_zero(segment_end[1]-scanline_y):
+            return [-2]
+
+        # check projection
+        scanline_dx = scanline_max-scanline_min
+        z = - scanline_dx * segment_dy
+        if geometry.is_zero(z):
+            return [0]
+        segment_dx = segment_end[0]-segment_start[0]
+        dx, dy = segment_start[0]-scanline_min, segment_start[1]-scanline_y
+        ua = scanline_dx * dy / z
+        if ua < 0.0 or ua > 1.0:
+            return [0]
+        ub = (segment_dx * dy - segment_dy * dx)/z
+        if ub < 0.0 or ub > 1.0:
+            return [0]
+
+        return [1, segment_start[0] + ua*segment_dx]
+
+    def calc_scanline(sh):
+
+        # clear intersections buffer
+        for y in range(VIEW_HEIGHT):
+            scanlines[y].clear()
+
+        minX = sh['rotated'][MINX]-1
+        maxX = sh['rotated'][MAXX]+1
+        # process segments
+        for path in sh['work']:
+            prev_point = path[-1]
+            for point in path:
+                # s = f'Curr segment {prev_point} {point}'
+                # print(s)
+                # pyperclip.copy(s)
+                if prev_point[0] < VIEWBOX_RECT[MAXX] or point[0] < VIEWBOX_RECT[MAXX]:
+                    # print(prev_point, point)
+
+                    # get segment Y-axis min & max
+                    minY = min(prev_point[1], point[1])
+                    maxY = max(prev_point[1], point[1])
+
+                    if geometry.is_zero(maxY-minY) and minY > VIEWBOX_RECT[MINY] and minY < VIEWBOX_RECT[MAXY]:
+                        # if parallel to X-axis and lies into Y bounds
+                        scanlines[math.floor(minY)+CENTER_Y].extend([prev_point[0], point[0]])
+                    else:
+
+                        # crop to bounds
+                        minY = math.ceil(max(minY, VIEWBOX_RECT[MINY]))
+                        maxY = math.floor(min(maxY, VIEWBOX_RECT[MAXY]))
+
+                        for y in range(minY, maxY):
+                            a = segment_intersect(prev_point,  point, minX, maxX, y+0.5)
+                            # print(a)
+                            if a[0] == 1:  # intersect
+                                scanlines[y+CENTER_Y].append(a[1])
+                prev_point = point
+        # del prev_point, point, minX, maxX, minY, maxY, path
+        # sort & put to screen
+
+    def draw_scanline(color):
+        for y in range(VIEW_HEIGHT):
+            l = len(scanlines[y])
+            if l > 0:
+                geometry.quickSort(scanlines[y], 0, l-1)
+                ptr = 0
+                while ptr < l:
+                    start = round(scanlines[y][ptr])
+                    ptr += 1
+                    if ptr < l:
+                        count = round(scanlines[y][ptr])
+                    else:
+                        count = VIEWBOX_RECT[MAXX]
+                    count -= start
+                    start += CENTER_X
+                    ptr += 1
+
+                    while count > 0:
+                        pixarr[start][y] = color
+                        start += 1
+                        count -= 1
+                    
 
     def draw_text(x, y, value: str):
         # for dx in range(-2, 3):
@@ -317,41 +347,67 @@ def draw_screen():
 
         ft_font.render_to(screen, (x, y), value, fgcolor=clLime)
 
-    def coords_to_screen(point: tuple, pix_adjust: bool = False, move_center: bool = False):
-        x = point[0]+VMARGIN
-        y = VMARGIN + VIEW_HEIGHT - point[1]
-        if move_center:
-            x += CENTER_X
-            y -= CENTER_Y
-        if pix_adjust:
-            x += 0.5
-            y += 0.5
-        x *= VZOOM
-        y *= VZOOM
-        return (x, y)
+    def draw_shape(sh, fill=None, outline=None):
+        if not (fill is None):
+            calc_scanline(sh)
+            draw_scanline(fill)
+        # outline
+        if not (outline is None):
+            for path in sh['work']:
+                # first = True
+                # print(f'len(path): {len(path)}')
+                # pygame.draw.aalines(screen,clLime,True,path)
+                for point_id in range(len(path)):
+                    pt = (path[point_id][0]+CENTER_X, VIEW_HEIGHT-path[point_id][1]-CENTER_Y-1)
+                    if point_id == 0:
+                        first = pt
+                    else:
+                        pygame.draw.line(screen, outline, prev_pt, pt)
+                    prev_pt = pt
+                pygame.draw.line(screen, clLime,  pt, first)
 
     # prepare bg
-    screen.fill(clBlack)
-
+    screen.fill(clSea)
+    pixarr = pygame.PixelArray(screen)
     for recid in shapes:
         sh = shapes[recid]
         if not sh['used']:
             continue
-        for path in sh['work']:
-            # first = True
-            for point_id in range(1, len(path)):
-                draw_line(path[point_id-1], path[point_id])
+        draw_shape(sh, fill=clLand, outline=None)
 
     # draw viewport center
-    pygame.draw.circle(screen, clLtRed, (CENTER_X, VIEW_HEIGHT-CENTER_Y), 1)
-
+    pygame.draw.line(screen, clRed,  (CENTER_X-3, first)
+    plot(0, 0, clLime)
     # fps + info
     draw_text(10, 10, f'FPS: {clock.get_fps():.0f}')
     draw_text(10, 25, f'POS: {my_xy[0]:.1f},{my_xy[1]:.1f}')
     draw_text(10, 40, f'ANGLE: {round(my_angle,1):.2f}')
     draw_text(10, 55, f'ZOOM: x{ZOOM_RANGE[zoom_level]} (#{zoom_level})')
 
-    return
+
+def do_Test():
+
+    try:
+
+        calc_visible()
+        draw_screen()
+
+        for test_zoom in range(2, 6):
+            zoom_level = test_zoom
+            my_xy[0] = -5.0
+            while my_xy[0] < 5.0:
+                my_xy[1] = -5.0
+                while my_xy[1] < 5.0:
+                    my_angle = 0.0
+                    while my_angle < 370.0:
+                        logger.write_log(f'my_xy: {my_xy}, my_angle: {my_angle}, zoom_level: {zoom_level} (x{ZOOM_RANGE[zoom_level]})')
+                        calc_visible()
+                        draw_screen()
+                        my_angle += 0.1
+                    my_xy[1] += 0.1
+                my_xy[0] += 0.1
+    except:
+        logger.write_log(f'!! my_xy: {my_xy}, my_angle: {my_angle}, zoom_level: {zoom_level}')
 
 
 try:
@@ -362,31 +418,35 @@ try:
     pygame.init()
     pygame.key.set_repeat(KEYBOARD_DELAY)  # milliseconds
     screen = pygame.display.set_mode((VIEW_WIDTH, VIEW_HEIGHT), flags=pygame.HWSURFACE | pygame.SRCALPHA, depth=32)
-    pixarr = pygame.PixelArray(screen)
 
     clock = pygame.time.Clock()
     ft_font = pygame.freetype.SysFont('Consolas', 14)
+    pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN])
+
+    # do_Test()    exit
 
     calc_visible()
-    while True:
+    done = False
+    while not done:
         # Process player inputs.
         handled = False
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                raise SystemExit
+
+                done = True               # raise SystemExit
             if event.type == pygame.KEYDOWN:
+                mult = 5 if pygame.key.get_mods() & pygame.KMOD_SHIFT else 1
                 if event.key == pygame.K_ESCAPE:
-                    pygame.quit()
-                    raise SystemExit
+                    done = True
+                    # raise SystemExit
                 elif event.key == pygame.K_LEFT:
-                    my_xy[0] -= MOVE_DELTA
+                    my_xy[0] -= MOVE_DELTA*mult
                 elif event.key == pygame.K_RIGHT:
-                    my_xy[0] += MOVE_DELTA
+                    my_xy[0] += MOVE_DELTA*mult
                 elif event.key == pygame.K_UP:
-                    my_xy[1] += MOVE_DELTA
+                    my_xy[1] += MOVE_DELTA*mult
                 elif event.key == pygame.K_DOWN:
-                    my_xy[1] -= MOVE_DELTA
+                    my_xy[1] -= MOVE_DELTA*mult
                 elif event.key == pygame.K_KP_MINUS:
                     if zoom_level > 0:
                         zoom_level -= 1
@@ -394,11 +454,11 @@ try:
                     if zoom_level < (len(ZOOM_RANGE)-1):
                         zoom_level += 1
                 elif event.key == pygame.K_PAGEDOWN:
-                    my_angle -= ANGLE_DELTA
+                    my_angle -= ANGLE_DELTA*mult
                     if my_angle < 0.0:
                         my_angle += 360.0
                 elif event.key == pygame.K_PAGEUP:
-                    my_angle += ANGLE_DELTA
+                    my_angle += ANGLE_DELTA*mult
                     if my_angle >= 360.0:
                         my_angle -= 360.0
                 elif event.key == pygame.K_RETURN:
@@ -413,10 +473,12 @@ try:
                     handled = True
 
         if handled:
+            # logger.write_log(f'---------------- my_xy: {my_xy}, my_angle: {my_angle}, zoom_level: {zoom_level}')
             calc_visible()
         draw_screen()
         pygame.display.flip()  # Refresh on-screen display
         clock.tick(60)         # wait until next frame (at 60 FPS)
+    pygame.quit()
 
 except:
     print('-'*30)
@@ -424,4 +486,5 @@ except:
     print('-'*30)
     print(traceback.format_exc())
 finally:
+    # logger.logfile.close()
     conn.close()

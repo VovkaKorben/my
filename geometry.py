@@ -84,4 +84,48 @@ def line_intersect(p1, p2, p3, p4):
     ub = (dx1 * dyy - dy1 * dxx)/z
     if ub < DETM or ub > DETP:
         return ()
+    print (ua,ub)
     return (p1[0] + ua*dx1, p1[1] + ua*dy1)
+
+
+def partition(a, low, high):
+    pivot = a[high]
+    i = low-1
+    for j in range(low, high):
+        if a[j] < pivot:
+            i += 1
+            a[i], a[j] = a[j], a[i]
+    a[i + 1], a[high] = a[high], a[i + 1]
+    return (i + 1)
+
+
+def quickSort(a, low, high):
+    if low < high:
+        pi = partition(a, low, high)
+        quickSort(a, low, pi - 1)
+        quickSort(a, pi + 1, high)
+
+
+def remove_duplicates(a):
+    # check for closest points (i.e. values like -23.999999999999996, -23.999999999999993 => counts as one value)
+    ra = []
+    src_ptr, src_len = 0, len(a)
+    while src_ptr < src_len:
+        if src_ptr == 0:
+            ra.append(a[src_ptr])
+        else:
+            if not math.isclose(a[src_ptr], ra[-1]):
+                ra.append(a[src_ptr])
+        src_ptr += 1
+    return ra
+
+def is_zero(v):
+    return  abs(v)<1e-6
+
+# for dx in range(1, 6):
+#     p1 = (1, 2)
+#     p2 = (5, 2)
+#     p3 = (1, 0)
+#     p4 = (dx, 4)
+#     r = line_intersect(p1, p2, p3, p4)
+#     print(p4,r)
