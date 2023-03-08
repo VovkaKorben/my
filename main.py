@@ -29,7 +29,7 @@ CENTER_SIZE = 4
 # shapes collector
 SHAPES_UPDATE = 5*60*1000  # 5 min for update shapes
 shapes_timer = 0
-DATABASE = 'C:\\ais\\ais.db'
+
 
 # display
 # ZOOM_RANGE = (1, 50, 100, 250, 500, 1000, 2000, 3000, 5000)  # , 10000, 15000, 20000, 50000)
@@ -238,8 +238,6 @@ def draw_screen():
 
         plot(x, y, color)
 
-  
-
     def segment_intersect(segment_start: dict, segment_end: dict, scanline_min: float, scanline_max: float, scanline_y: float):
         """
         returns:
@@ -284,13 +282,15 @@ def draw_screen():
 
         minX = sh['rotated'][MINX]-1
         maxX = sh['rotated'][MAXX]+1
+
+        curr_index = 0
         # process segments
         for path in sh['work']:
             prev_point = path[-1]
             for point in path:
-                # s = f'Curr segment {prev_point} {point}'
-                # print(s)
-                # pyperclip.copy(s)
+                s = f'segment: {prev_point} to {point}'
+                print(f'index = {curr_index}, {s}')
+                pyperclip.copy(s)
                 if prev_point[0] < VIEWBOX_RECT[MAXX] or point[0] < VIEWBOX_RECT[MAXX]:
                     # print(prev_point, point)
 
@@ -304,8 +304,8 @@ def draw_screen():
                     else:
 
                         # crop to bounds
-                        minY = math.ceil(max(minY, VIEWBOX_RECT[MINY]))
-                        maxY = math.floor(min(maxY, VIEWBOX_RECT[MAXY]))
+                        minY = math.floor(max(minY, VIEWBOX_RECT[MINY]))
+                        maxY = math.ceil(min(maxY, VIEWBOX_RECT[MAXY]))
 
                         for y in range(minY, maxY):
                             a = segment_intersect(prev_point,  point, minX, maxX, y+0.5)
@@ -313,6 +313,7 @@ def draw_screen():
                             if a[0] == 1:  # intersect
                                 scanlines[y+CENTER_Y].append(a[1])
                 prev_point = point
+                curr_index += 1
         # del prev_point, point, minX, maxX, minY, maxY, path
         # sort & put to screen
 
@@ -321,6 +322,8 @@ def draw_screen():
             l = len(scanlines[y])
             if l > 0:
                 geometry.quickSort(scanlines[y], 0, l-1)
+                ypos = VIEW_HEIGHT-y-1
+                print(f'Y = {y-CENTER_Y}, data: {scanlines[y]}')
                 ptr = 0
                 while ptr < l:
                     start = round(scanlines[y][ptr])
@@ -334,10 +337,9 @@ def draw_screen():
                     ptr += 1
 
                     while count > 0:
-                        pixarr[start][y] = color
+                        pixarr[start][ypos] = color
                         start += 1
                         count -= 1
-                    
 
     def draw_text(x, y, value: str):
         # for dx in range(-2, 3):
@@ -376,8 +378,9 @@ def draw_screen():
         draw_shape(sh, fill=clLand, outline=None)
 
     # draw viewport center
-    pygame.draw.line(screen, clRed,  (CENTER_X-3, first)
-    plot(0, 0, clLime)
+    pygame.draw.line(screen, clRed,  (CENTER_X-CENTER_SIZE, CENTER_Y), (CENTER_X+CENTER_SIZE, CENTER_Y))
+    pygame.draw.line(screen, clRed,  (CENTER_X, CENTER_Y-CENTER_SIZE), (CENTER_X, CENTER_Y+CENTER_SIZE))
+
     # fps + info
     draw_text(10, 10, f'FPS: {clock.get_fps():.0f}')
     draw_text(10, 25, f'POS: {my_xy[0]:.1f},{my_xy[1]:.1f}')
@@ -412,7 +415,7 @@ def do_Test():
 
 try:
     ais_db.cache_queries()
-    conn = ais_db.connect_db(DATABASE)
+    conn = ais_db.connect_db(ais_db.DATABASE)
     update_cache()
 
     pygame.init()

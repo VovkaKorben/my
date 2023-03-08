@@ -1,11 +1,15 @@
 import helpers
 import os
 import io
+import ais_db
 
 vessels, buffer, talkers, sentences, satellites = {}, {}, {}, {}, {}
 own = {}
-
-
+VDM_TYPES = {}
+VDM_DEFS = {}
+NMEA_TYPE_INT = 0
+NMEA_TYPE_FLOAT = 1
+NMEA_TYPE_STRING = 2
 sat = helpers.satellites_class()
 
 
@@ -67,195 +71,6 @@ def handler_vtg(data):
     pass
 
 
-# Field	Len	Description	Member	T	Units
-# 0-5	6	Message Type	type	u	Constant: 1-3
-# 06.июл	2	Repeat Indicator	repeat	u	Message repeat count
-# авг.37	30	MMSI	mmsi	u	9 decimal digits
-# 38-41	4	Navigation Status	status	e	See "Navigation Status"
-# 42-49	8	Rate of Turn(ROT)	turn	I3	See below
-# 50-59	10	Speed Over Ground(SOG)	speed	U1	See below
-# 60-60	1	Position Accuracy	accuracy	b	See below
-# 61-88	28	Longitude	lon	I4	Minutes/10000 (see below)
-# 89-115	27	Latitude	lat	I4	Minutes/10000 (see below)
-# 116-127	12	Course Over Ground(COG)	course	U1	Relative to true north, to 0.1 degree precision
-# 128-136	9	True Heading(HDG)	heading	u	0 to 359 degrees, 511 = not available.
-# 137-142	6	Time Stamp	second	u	Second of UTC timestamp
-# 143-144	2	Maneuver Indicator	maneuver	e	See "Maneuver Indicator"
-# 145-147	3	Spare		x	Not used
-# 148-148	1	RAIM flag	raim	b	See below
-# 149-167	19	Radio status	radio	u	See below
-
-vdm_process = {1: [  # Types 1, 2 and 3: Position Report Class A
-    ['repeat', 6, 2, 'u'],
-    ['lon', 61,  28],
-    ['lat', 89, 27],
-    ['turn', 42, 8],
-    ['speed', 50, 10, 'u'],
-    ['accuracy', 60, 1, 'u'],
-    ['course', 116, 12, 'u-1'],
-    ['heading', 128, 9],
-    ['maneuver', 143, 2, 'u'],
-    ['raim', 148, 1, 'u'],
-    ['radio', 149, 19, 'u'],
-    ['second', 137, 6, 'u'],
-],
-    2: [  # Types 1, 2 and 3: Position Report Class A
-    ['repeat', 6, 2, 'u'],
-    ['lon', 61,  28],
-    ['lat', 89, 27],
-    ['turn', 42, 8],
-    ['speed', 50, 10, 'u'],
-    ['accuracy', 60, 1, 'u'],
-    ['course', 116, 12, 'u-1'],
-    ['heading', 128, 9],
-    ['maneuver', 143, 2, 'u'],
-    ['raim', 148, 1, 'u'],
-    ['radio', 149, 19, 'u'],
-    ['second', 137, 6, 'u'],
-],
-    3: [  # Types 1, 2 and 3: Position Report Class A
-    ['repeat', 6, 2, 'u'],
-    ['lon', 61,  28],
-    ['lat', 89, 27],
-    ['turn', 42, 8],
-    ['speed', 50, 10, 'u'],
-    ['accuracy', 60, 1, 'u'],
-    ['course', 116, 12, 'u-1'],
-    ['heading', 128, 9],
-    ['maneuver', 143, 2, 'u'],
-    ['raim', 148, 1, 'u'],
-    ['radio', 149, 19, 'u'],
-    ['second', 137, 6, 'u'],
-],
-
-
-
-    4: [  # Type 4: Base Station Report
-    ['repeat', 6, 2, 'u'],
-    ['year', 38,  14, 'u'],
-    ['month', 52, 4, 'u'],
-    ['day', 56, 5, 'u'],
-    ['hour', 61, 5, 'u'],
-    ['minute', 66, 6, 'u'],
-    ['second', 72, 6, 'u'],
-    ['accuracy', 78, 1, 'u'],
-    ['lon', 79,  28],
-    ['lat', 107, 27],
-    ['epfd', 134, 4, 'u'],
-    ['raim', 148, 1, 'u'],
-    ['radio', 149, 19, 'u'],
-
-],
-
-    5: [  # Type 5: Static and Voyage Related Data
-    ['repeat', 6, 2, 'u'],
-    ['ais_version', 38,  2, 'u'],
-    ['imo', 40, 30, 'u'],
-    ['callsign', 70, 7, 's'],
-    ['shipname', 112, 20, 's'],
-    ['shiptype', 232, 8, 'u'],
-    ['to_bow', 240, 9, 'u'],
-    ['to_stern', 249, 9, 'u'],
-    ['to_port', 258, 6, 'u'],
-    ['to_starboard', 264, 6, 'u'],
-    ['epfd', 270, 4, 'u'],
-    ['month', 274, 4, 'u'],
-    ['day', 278, 5, 'u'],
-    ['hour', 283, 5, 'u'],
-    ['minute', 288, 6, 'u'],
-    ['draught', 294, 8, 'u-1'],
-    ['destination', 302, 20, 's'],
-    ['dte', 422, 1, 'u'],
-],
-    18: [  # Type 18: Standard Class B CS Position Report
-    ['repeat', 6, 2, 'u'],
-    ['speed', 46, 10, 'u'],
-    ['accuracy', 56, 1, 'u'],
-    ['lon', 57,  28],
-    ['lat', 85, 27],
-    ['course', 112, 12, 'u-1'],
-    ['heading', 124, 9],
-    ['second', 133, 6, 'u'],
-    ['cs', 141, 1, 'u'],
-    ['display', 142, 1, 'u'],
-    ['dsc', 143, 1, 'u'],
-    ['band', 144, 1, 'u'],
-    ['msg22', 145, 1, 'u'],
-    ['assigned', 146, 1, 'u'],
-    ['raim', 147, 1, 'u'],
-    ['radio', 148, 20, 'u'],
-
-],
-
-    19: [  # Type 19: Extended Class B CS Position Report
-    ['repeat', 6, 2, 'u'],
-    ['speed', 46, 10, 'u'],
-    ['accuracy', 56, 1, 'u'],
-    ['lon', 57,  28],
-    ['lat', 85, 27],
-    ['course', 112, 12, 'u-1'],
-    ['heading', 124, 9],
-    ['second', 133, 6, 'u'],
-    ['shipname', 143, 20, 's'],
-    ['shiptype', 263, 8, 'u'],
-    ['to_bow', 271, 9, 'u'],
-    ['to_stern', 280, 9, 'u'],
-    ['to_port', 289, 6, 'u'],
-    ['to_starboard', 295, 6, 'u'],
-    ['epfd', 301, 4, 'u'],
-    ['raim', 305, 1, 'u'],
-    ['dte', 306, 1, 'u'],
-    ['assigned', 307, 1, 'u'],
-],
-    21: [  # Type 21: Aid-to-Navigation Report
-    ['repeat', 6, 2, 'u'],
-    ['aid_type', 38, 5, 'u'],
-    ['name', 43, 20, 's'],
-    ['accuracy', 163, 1, 'u'],
-    ['lon', 164,  28],
-    ['lat', 192, 27],
-    ['to_bow', 219, 9, 'u'],
-    ['to_stern', 228, 9, 'u'],
-    ['to_port', 237, 6, 'u'],
-    ['to_starboard', 243, 6, 'u'],
-    ['epfd', 249, 4, 'u'],
-    ['second', 253, 6, 'u'],
-    ['off_position', 259, 1, 'u'],
-    ['raim', 268, 1, 'u'],
-    ['virtual_aid', 269, 1, 'u'],
-    ['assigned', 270, 1, 'u'],
-],
-
-    24: [  # Type 24: Static Data Report (Equivalent of a Type 5 message for ships using Class B equipment.)
-        ['repeat', 6, 2, 'u'],
-        ['partno', 38,  2, 'u'],
-],
-    # ----- no nav info
-    16: [  # Type 16: Assignment Mode Command
-    ['repeat', 6, 2, 'u'],
-],
-    17: [  # Type 17: DGNSS Broadcast Binary Message
-    ['repeat', 6, 2, 'u'],
-],
-    20: [  # Type 20 Data Link Management Message
-    ['repeat', 6, 2, 'u'],
-],
-
-    # ----- binary
-    6: [  # Type 6: Binary Addressed Message
-    ['repeat', 6, 2, 'u'],
-],
-    8: [  # Type 8: Binary Broadcast Message
-    ['repeat', 6, 2, 'u'],
-],
-
-    # ----- datetime operations
-    10: [  # Type 10: UTC/Date Inquiry
-    ['repeat', 6, 2, 'u'],
-],
-}
-
-
 def handler_vdm(data):
 
     def field_lon(field):
@@ -311,13 +126,13 @@ def handler_vdm(data):
     # parse messages
     msg_id = bitcollector.get_int(0, 6)
     mmsi = bitcollector.get_int(8, 30)
-    if msg_id in vdm_process:
+    if msg_id in VDM_FIELDS:
         check_vessel(mmsi)
         possibles = locals().copy()
 
         # print(f'--- {msg_id} ---')
 
-        for field in vdm_process[msg_id]:
+        for field in VDM_FIELDS[msg_id]:
 
             # field has named handler
             if len(field) <= 3:
@@ -448,3 +263,186 @@ def parse_nmea(value):
                 method(a)
 
     return
+
+
+def load_vdm_defs():
+    try:
+        conn = ais_db.connect_db(ais_db.DATABASE)
+        c = conn.cursor()
+        try:
+            sql = ais_db.read_query('nmea/read_vdm_defs.sql')
+            c.execute(sql)
+            while True:
+                data = c.fetchone()
+                if data == None:
+                    break
+                msg_id = data.pop('id')
+                if not (msg_id in VDM_DEFS):
+                    VDM_DEFS[msg_id] = []
+
+                VDM_DEFS[msg_id].append(data)
+
+            sql = ais_db.read_query('nmea/read_vdm_types.sql')
+            c.execute(sql)
+            while True:
+                data = c.fetchone()
+                if data == None:
+                    break
+                msg_id = data.pop('id')
+                VDM_TYPES[msg_id] = data
+
+        finally:
+            c.close()
+    finally:
+        conn.close()
+
+
+def create_vdm(message_id, data, header='AI', group_id: int = 1):
+    def get_checksum(s: str):
+        cs = 0
+        for c in s:
+            cs ^= ord(c)
+        return cs
+
+    def collect_bits(bc):
+
+        if not (message_id in VDM_DEFS):
+            raise Exception(f'[MSG_ID:{message_id}] Not found in VDM_DEFS')
+        if not (message_id in VDM_TYPES):
+            raise Exception(f'[MSG_ID:{message_id}] Not found in VDM_TYPES')
+
+        bc.add_bits(message_id, 6)
+
+        for field in VDM_DEFS[message_id]:
+            # print(f'Field: {field["name"]} ({field})')
+            if field['start'] != bc.length:
+                raise Exception(f'[MSG_ID:{message_id}] No field with start at: {bc.length}')
+            if not (field['name'] in data):
+                if 'default' in field:
+                    value = field['default']
+                else:
+                    raise Exception(f'[MSG_ID:{message_id}] No default value for {field["name"]}')
+            else:
+                value = data[field['name']]
+            # value_bitlen=helpers.bit_collector.get_len(value)
+            # if value_bitlen > field['len']:
+            #     raise Exception(f'[MSG_ID:{message_id}] Value for {field["name"]}={value} exceed maximum length. Maximum allowed {field["len"]}, got {value_bitlen}.')
+            value_type = type(value)
+            if field['type'] == NMEA_TYPE_INT:
+                bc.add_bits(value, field['len'])
+            elif field['type'] == NMEA_TYPE_FLOAT:
+                bc.add_bits(round(value*field['exp']), field['len'])
+            elif field['type'] == NMEA_TYPE_STRING:
+                if value_type != str:
+                    raise Exception(f'[MSG_ID:{message_id}] {field["name"]}: string expected, got {value_type}')
+                value = value.upper()
+                l = len(value)
+                if l < field['len']:
+                    value += '@' * (field['len']-l)
+                    l = field['len']
+                else:
+                    l = min(len(value), field['len'])
+
+                for c in range( l):
+                    i = helpers.bit_collector.NMEA_CHARS.find(value[c])
+
+                    if i == -1:
+                        raise Exception(f'[MSG_ID:{message_id}] {field["name"]}: unsupported character `{value[c]}`')
+                    bc.add_bits(i, 6)
+            else:
+                raise Exception(f'[MSG_ID:{message_id}] Unknown field type ({field["type"]})')
+        if bc.length != VDM_TYPES[message_id]['len']:
+            raise Exception(f'[MSG_ID:{message_id}] Message len error, expected {VDM_TYPES[message_id]["len"]}, got {bc.length}')
+
+    def create_str(bc):
+        MAX_PAYLOAD = 336  # max bits in one message
+        ptr = 0
+        result = []
+        collected = 0
+        collect = r''
+        while ptr < bc.length:
+            b = bc.get_int(ptr, 6)
+            c = b + 48
+            if c > 87:
+                c += 8
+            # print(f'{b}\t{c}\t{chr(c)}')
+            collect += chr(c)
+            ptr += 6
+            collected += 6
+            if collected >= MAX_PAYLOAD or ptr >= bc.length:
+                result.append(collect)
+                collected = 0
+                collect = r''
+        return result
+
+    def create_messages(messages: dict, header: str, channel: str = 'A', group_id: int = None):
+        result = []
+        messages_count = len(messages)
+        for i in range(messages_count):
+            s = header+'VDM'
+            s = f'{s},{messages_count},{i+1},'
+            if messages_count > 1:
+                s = f'{s}{messages_count}'
+            s = f'{s},{channel},{messages[i]},0'
+
+            cs = get_checksum(s)
+            s = f'!{s}*{format(cs, "02X")}'
+            print(s)
+            result.append(s)
+
+        return result
+
+    bitcollector = helpers.bit_collector()
+    collect_bits(bitcollector)
+    messages = create_str(bitcollector)
+    if len(messages) > 1 and group_id is None:
+        raise Exception(f'[MSG_ID:{message_id}] For multiple message sequences you must provide GROUP_ID')
+    nmea = create_messages(messages, header)
+    # print(nmea)
+    return nmea
+
+
+def test_create_vdm():
+
+    vessel = {
+        'repeat': 0,
+        'lon': 29.726505062210823,
+        'lat': 62.595683709205275,
+        'status': 8,  # Under way sailing
+        'turn': -5,
+        'speed': 40,
+        'accuracy': 1,
+        'course': 12.3,
+        'heading': 22,
+        'maneuver': 8,
+        'raim': 0,
+        'second': 30,
+        'ais_version': 0,
+        'imo': 11223344,
+        'callsign': 'TARDIS',
+        'shipname': 'ENOLA',
+        'shiptype': 36,
+        'to_bow': 5,
+        'to_stern': 3,
+        'to_port': 1,
+        'to_starboard': 1,
+
+        'month': 4,
+        'day': 27,
+        'hour': 9,
+        'minute': 30,
+        'draught': 12,
+        'destination': 'HEAVEN',
+
+        'mmsi': 12345678,
+    }
+
+    # create_vdm(message_id=1, data=vessel)
+    create_vdm(message_id=5, data=vessel)
+
+
+load_vdm_defs()
+test_create_vdm()
+
+# 55P5TL01VIaAL@7WKO@mBplU@<PDhh000000001S;AJ::4A80?4i@E53
+#!AIVDM,2,1,3,B,55P5TL01VIaAL@7WKO@mBplU@<PDhh000000001S;AJ::4A80?4i@E53,0*3E

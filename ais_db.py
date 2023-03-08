@@ -2,7 +2,7 @@ import sqlite3
 import os
 import io
 SQL_PATH = 'C:\\ais\\my\\sql'
-
+DATABASE = 'C:\\ais\\ais.db'
 def connect_db(DATABASE:str):
     conn = sqlite3.connect(DATABASE)
     conn.row_factory =make_dicts

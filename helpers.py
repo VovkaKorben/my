@@ -3,14 +3,23 @@ import time
 import xlsxwriter
 import os
 import math
-bits, c, b = [],  32, 1
+re_float = re.compile(r'[-+]?([0-9]*[.])?[0-9]+([eE][-+]?\d+)?')
+# PI = 3.14159265359
+tb, sb, mb = [], [0], [0]
+c, b = 32, 1
 while c > 0:
-    bits.append(b)
+    tb.append(b)
+    sb.append(b)
+    mb.append(b-1)
     b <<= 1
     c -= 1
-re_float = re.compile(r'[-+]?([0-9]*[.])?[0-9]+([eE][-+]?\d+)?')
-PI = 3.14159265359
-def is_intersect(rect1,rect2): 
+test_bit = tuple(tb)
+sign_bit = tuple(sb)
+mask_bit = tuple(mb)
+del b, c, sb, mb, tb
+
+
+def is_intersect(rect1, rect2):
     return ((rect1[0] < rect2[2]) and (rect1[2] > rect2[0]) and (rect1[3] > rect2[1]) and (rect1[1] < rect2[3]))
 
 
@@ -23,12 +32,13 @@ def sign(a):
         return 0
 
 
-def latlon2meter(coords): # in format (lon,lat)
+def latlon2meter(coords):  # in format (lon,lat)
     x = (coords[0] * 20037508.34) / 180
-    if abs(coords[1]) >= 85.051129:  # The value 85.051129° is the latitude at which the full projected map becomes a square
+    if abs(coords[1]) >= 85.051129:
+        # The value 85.051129° is the latitude at which the full projected map becomes a square
         y = sign(coords[1]) * abs(coords[1])*111.132952777
     else:
-        y = math.log(math.tan(((90 + coords[1]) * PI) / 360)) / (PI / 180)
+        y = math.log(math.tan(((90 + coords[1]) * math.pi) / 360)) / (math.pi / 180)
         y = (y * 20037508.34) / 180
     return [x, y]
 
@@ -77,6 +87,27 @@ class satellites_class():
 
 
 class bit_collector():
+    NMEA_CHARS = '@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_ !"#$%&\\()*+,-./0123456789:;<=>?'
+    @staticmethod
+    def get_len(v):
+        if type(v) == int:
+            if v == 0:
+                return 0
+            else:
+                if v < 0:
+                    v = ~v + 1
+                return math.ceil(math.log(v, 2))
+        elif type(v) == float:
+            pass
+        else:
+            raise Exception(f'bit_collector.get_len: Unknown type({type(v)})')
+
+    def twos_comp(self, val, bits):
+        """compute the 2's complement of int value val"""
+        if (val & sign_bit[bits]) != 0:
+            val -= test_bit[bits]
+        return val
+
     def __init__(self):
         self._buff_len = 150  # bytes
         self.buff = bytearray(self._buff_len)
@@ -87,10 +118,10 @@ class bit_collector():
         for c in range(self._buff_len):
             self.buff[c] = 0
 
-    def push(self, data, length):
+    def add_bits(self, data, length: int):
         while length > 0:
-            if data & bits[length-1]:
-                self.buff[self.length >> 3] |= bits[self.length & 7 ^ 7]
+            if data & test_bit[length-1]:
+                self.buff[self.length >> 3] |= test_bit[self.length & 7 ^ 7]
             length -= 1
             self.length += 1
 
@@ -100,26 +131,28 @@ class bit_collector():
 
         while length_counter > 0:
             result <<= 1
-            if self.buff[start >> 3] & bits[start & 7 ^ 7]:
+            if self.buff[start >> 3] & test_bit[start & 7 ^ 7]:
                 result |= 1
             length_counter -= 1
             start += 1
-        # sign = bits[length-1]
-        if signed and (result & bits[length-1]) != 0:
-            result = -(result ^ (bits[length]-1))
 
+        if signed:
+            result = self.twos_comp(result, length)
+        # sign = bits[length-1]
+
+        # if signed and (result & test_bit[length-1]) != 0:            result = -(result ^ (bits[length]-1))
         return result
 
     def get_str(self,  start: int, length: int):
-        # print('----------------------------')
-        char_lut = '@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_ !"#$%&\\()*+,-./0123456789:;<=>?'
+        
+
         result = ''
         while length > 0:
             code = self.get_int(start, 6)
             # print(code)
             if code == 0:  # or code==32:
                 break
-            result += char_lut[code]
+            result += bit_collector.NMEA_CHARS[code]
             start += 6
             length -= 1
         return result
