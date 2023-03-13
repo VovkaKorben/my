@@ -3,7 +3,9 @@ import time
 import xlsxwriter
 import os
 import math
+from datetime import datetime
 re_float = re.compile(r'[-+]?([0-9]*[.])?[0-9]+([eE][-+]?\d+)?')
+re_floatstr2int = re.compile(r'([-+]?[0-9]+)\.?[0-9]*')
 # PI = 3.14159265359
 tb, sb, mb = [], [0], [0]
 c, b = 32, 1
@@ -69,25 +71,54 @@ def is_float(s):
     return (matches.span()[1] == len(s))
 
 
+def floatstr2int(s):
+    matches = re_floatstr2int.match(s)
+    if matches == None:
+        return False
+    r = s[matches.regs[1][0]:matches.regs[1][1]]
+    # i = int(r)
+    return int(r)
+
+
 def utc_ms(add_time: int = 0):
     return (time.time_ns()//1000000)+add_time
 
 
+class gps_class():
+    def __init__(self):
+        # GSA
+        self.modeAM, self.modeFIX = None, None
+        self.used_sv = []
+        self.pdop, self.hdop, self.vdop = None, None, None
+
+        self.hog_true, self.hog_magnetic = None, None
+        self.sog_knots, self.sog_km = None, None
+        self.lat, self.lon, self.magnetic_variation = 0, 0, 0
+        self.datetime = datetime(1, 1, 1)
+
+
 class satellites_class():
     def __init__(self):
-        self.sl = {}
+        # GSV
+        self.sat_list = {}
 
-    def modify(self, prn, elevation, azimuth, snr):
-        if not (prn in self.sl):
-            self.sl[prn] = {}
-        self.sl[prn]['elevation'] = elevation
-        self.sl[prn]['azimuth'] = azimuth
-        self.sl[prn]['snr'] = snr
-        self.sl[prn]['last_access'] = utc_ms()
+    def modify(self, data):  # prn, elevation, azimuth, snr
+        if len(data) != 4:
+            return
+        # zz = []
+        # for x in data:            z = in
+        data = [int(x) if x.isdigit() else None for x in data]
+        if not (data[0] in self.sat_list):
+            self.sat_list[data[0]] = {}
+        self.sat_list[data[0]]['elevation'] = data[1]
+        self.sat_list[data[0]]['azimuth'] = data[2]
+        self.sat_list[data[0]]['snr'] = data[3]
+        self.sat_list[data[0]]['last_access'] = utc_ms()
 
 
 class bit_collector():
     NMEA_CHARS = '@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_ !"#$%&\\()*+,-./0123456789:;<=>?'
+
     @staticmethod
     def get_len(v):
         if type(v) == int:
@@ -144,7 +175,6 @@ class bit_collector():
         return result
 
     def get_str(self,  start: int, length: int):
-        
 
         result = ''
         while length > 0:
@@ -208,3 +238,55 @@ def wr_ex(vessels):
         # row += 1
 
     workbook.close()
+
+
+# Node class
+class Node:
+
+    # Constructor to initialize the node object
+    def __init__(self, data):
+        self.data = data
+        self.next = None
+
+
+class LinkedList:
+
+    # Function to initialize head
+    def __init__(self):
+        self.clear()
+
+    def clear(self):
+        self.head = None
+
+    def sortedInsert(self, new_node):
+
+        # Special case for the empty linked list
+        if self.head is None:
+            new_node.next = self.head
+            self.head = new_node
+
+        # Special case for head at end
+        elif self.head.data >= new_node.data:
+            new_node.next = self.head
+            self.head = new_node
+
+        else:
+
+            # Locate the node before the point of insertion
+            current = self.head
+            while (current.next is not None and
+                   current.next.data < new_node.data):
+                current = current.next
+
+            new_node.next = current.next
+            current.next = new_node
+
+    # Function to insert a new node at the beginning
+    def push(self, new_data):
+        new_node = Node(new_data)
+        new_node.next = self.head
+        self.head = new_node
+
+
+def is_zero(v):
+    return  abs(v)<1e-6

@@ -1,0 +1,1 @@
+SELECT `id`, `data` FROM `rawdata` where `id` > %s ORDER BY `id` asc;

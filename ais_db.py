@@ -3,12 +3,16 @@ import os
 import io
 SQL_PATH = 'C:\\ais\\my\\sql'
 DATABASE = 'C:\\ais\\ais.db'
-def connect_db(DATABASE:str):
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory =make_dicts
+
+
+def connect_db(database_filename: str, raw_data: bool):
+    conn = sqlite3.connect(database_filename)
+    if raw_data:
+        conn.row_factory = make_raw
+    else:
+        conn.row_factory = make_dicts
     conn.set_trace_callback(sqlite_trace)
     return conn
-
 
 
 def cache_queries():

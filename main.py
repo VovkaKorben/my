@@ -3,10 +3,9 @@ from geometry import MINX, MINY, MAXX, MAXY
 import pygame.gfxdraw
 import pygame
 import os
-import ais_db
+import ais_mysql
 import traceback
 import helpers
-import sqlite3
 import math
 import copy
 import yaml
@@ -46,10 +45,12 @@ VIEWBOX_RECT = (-CENTER_X, -CENTER_Y, VIEW_WIDTH-CENTER_X-1, VIEW_HEIGHT-CENTER_
 CORNERS_X_INDEX = (MINX, MINX, MAXX, MAXX)
 CORNERS_Y_INDEX = (MINY, MAXY, MINY, MAXY)  # indexes
 
-my_xy, my_angle, zoom_level = [0.0, 0.0], 0.0, 4
+my_xy, my_angle, zoom_level = [0.0, 0.0], 0.0, 3
 shapes = {}
 scanlines = []
+scanline_list = []
 for y in range(VIEW_HEIGHT):
+    # scanline_list.append(helpers.LinkedList)
     scanlines.append([])
 
 
@@ -65,6 +66,10 @@ ANGLE_DELTA = 1.0
 MOVE_DELTA = 1
 KEYBOARD_DELAY = 120
 
+NO_INTERSECT = 0
+INTERSECT_OK = 1
+SEGMENT_PARALLEL = -1
+
 
 def garbage_shapes():  # remove old shapes
     pass
@@ -72,21 +77,21 @@ def garbage_shapes():  # remove old shapes
 
 def load_shapes():
     overlap_coeff = 1.05 * ZOOM_RANGE[-1]
-    params = {
-        'minx': my_xy[0]+VIEWBOX_RECT[0]*overlap_coeff,
-        'miny': my_xy[1]+VIEWBOX_RECT[1]*overlap_coeff,
-        'maxx': my_xy[0]+VIEWBOX_RECT[2]*overlap_coeff,
-        'maxy': my_xy[1]+VIEWBOX_RECT[3]*overlap_coeff,
-    }
+    params = [
+        my_xy[0]+VIEWBOX_RECT[0]*overlap_coeff,
+        my_xy[1]+VIEWBOX_RECT[1]*overlap_coeff,
+        my_xy[0]+VIEWBOX_RECT[2]*overlap_coeff,
+        my_xy[1]+VIEWBOX_RECT[3]*overlap_coeff,
+    ]
 
-    c = conn.cursor()
     shapes_count, points_count = 0, 0
     # get visible shapes
     try:
-        c.execute(ais_db.sql['get_shapes'], params)
+        mysql_cursor = mysql_conn.cursor(dictionary=True)
+        mysql_cursor.execute(ais_mysql.cached_query_string['get_shapes'], params)
         params = []
         while True:
-            data = c.fetchone()
+            data = mysql_cursor.fetchone()
             if data == None:
                 break
             if not (data['recid'] in shapes):
@@ -101,11 +106,11 @@ def load_shapes():
             shapes_count += 1
 
         if len(params) > 0:
-            query = ais_db.sql['get_points'].format(seq=','.join(['?']*len(params)))
-            c.execute(query, params)
+            query = ais_mysql.cached_query_string['get_points'].format(seq=','.join(['%s']*len(params)))
+            mysql_cursor.execute(query, params)
             last_recid = None
             while True:
-                data = c.fetchone()
+                data = mysql_cursor.fetchone()
                 if data == None:
                     break
                 if last_recid != data['recid']:
@@ -118,7 +123,7 @@ def load_shapes():
                 shapes[data['recid']]['origin'][part_id].append((data['x'], data['y']))
                 points_count += 1
     finally:
-        c.close()
+        mysql_cursor.close()
         print(f'Loaded: {shapes_count} shapes, {points_count} points')
 
 
@@ -251,18 +256,18 @@ def draw_screen():
 
         # check parallel
         segment_dy = segment_end[1]-segment_start[1]
-        if geometry.is_zero(segment_dy):
-            return [-1]
+        if helpers.is_zero(segment_dy):
+            return [SEGMENT_PARALLEL]
 
         # check min/max
-        if geometry.is_zero(segment_start[1]-scanline_y) or geometry.is_zero(segment_end[1]-scanline_y):
-            return [-2]
+        # if helpers.is_zero(segment_start[1]-scanline_y) or helpers.is_zero(segment_end[1]-scanline_y):
+        #   return [-2]
 
         # check projection
         scanline_dx = scanline_max-scanline_min
         z = - scanline_dx * segment_dy
-        if geometry.is_zero(z):
-            return [0]
+        if helpers.is_zero(z):
+            return [NO_INTERSECT]
         segment_dx = segment_end[0]-segment_start[0]
         dx, dy = segment_start[0]-scanline_min, segment_start[1]-scanline_y
         ua = scanline_dx * dy / z
@@ -272,10 +277,26 @@ def draw_screen():
         if ub < 0.0 or ub > 1.0:
             return [0]
 
-        return [1, segment_start[0] + ua*segment_dx]
+        return [INTERSECT_OK, segment_start[0] + ua*segment_dx]
 
     def calc_scanline(sh):
-
+        # ll = helpers.LinkedList()
+        def sort_ins(sl, x):
+            if len(sl) == 0:
+                sl.append(x)
+            else:
+                add_last = True
+                for i in range(len(sl)):
+                    if x < scanlines[y][i]:
+                        scanlines[y].insert(x, i)
+                        add_last = False
+                        break
+                    elif helpers.is_zero(x - sl[i]):
+                        add_last = False
+                        break
+                if add_last:
+                    sl.append(x)
+            return sl
         # clear intersections buffer
         for y in range(VIEW_HEIGHT):
             scanlines[y].clear()
@@ -292,15 +313,21 @@ def draw_screen():
                 print(f'index = {curr_index}, {s}')
                 pyperclip.copy(s)
                 if prev_point[0] < VIEWBOX_RECT[MAXX] or point[0] < VIEWBOX_RECT[MAXX]:
+                    # ll.clear()
                     # print(prev_point, point)
 
                     # get segment Y-axis min & max
                     minY = min(prev_point[1], point[1])
                     maxY = max(prev_point[1], point[1])
 
-                    if geometry.is_zero(maxY-minY) and minY > VIEWBOX_RECT[MINY] and minY < VIEWBOX_RECT[MAXY]:
+                    if helpers.is_zero(maxY-minY) and minY > VIEWBOX_RECT[MINY] and minY < VIEWBOX_RECT[MAXY]:
                         # if parallel to X-axis and lies into Y bounds
-                        scanlines[math.floor(minY)+CENTER_Y].extend([prev_point[0], point[0]])
+                        # ycoord = math.floor(minY)+CENTER_Y
+                        # print(f'{ycoord-CENTER_Y} -----')
+                        # print(f'was: {scanlines[ycoord]}')
+                        # scanlines[ycoord].extend([prev_point[0], point[0]])
+                        # print(f'now: {scanlines[ycoord]}')
+                        pass
                     else:
 
                         # crop to bounds
@@ -310,8 +337,12 @@ def draw_screen():
                         for y in range(minY, maxY):
                             a = segment_intersect(prev_point,  point, minX, maxX, y+0.5)
                             # print(a)
-                            if a[0] == 1:  # intersect
-                                scanlines[y+CENTER_Y].append(a[1])
+                            if a[0] == INTERSECT_OK:  # intersect
+                                ycoord = y+CENTER_Y
+                                print(f'Scanline {y} was: {scanlines[ycoord]}')
+                                sort_ins(scanlines[ycoord], a[1])
+                                # scanlines[ycoord].append(a[1])
+                                print(f'Scanline {y} now: {scanlines[ycoord]}')
                 prev_point = point
                 curr_index += 1
         # del prev_point, point, minX, maxX, minY, maxY, path
@@ -414,8 +445,9 @@ def do_Test():
 
 
 try:
-    ais_db.cache_queries()
-    conn = ais_db.connect_db(ais_db.DATABASE)
+    ais_mysql.cache_queries()
+    mysql_conn = ais_mysql.connect_db(user='nmearead', password='nmearead')
+
     update_cache()
 
     pygame.init()
@@ -467,7 +499,7 @@ try:
                 elif event.key == pygame.K_RETURN:
                     my_xy = [0, 0]
                     my_angle = 0  # degrees
-                    zoom_level = 0
+                    zoom_level = ZOOM_INIT
                 elif event.key == pygame.K_KP_ENTER:
                     # print(yaml.dump(shapes, default_flow_style=False))
                     print(json.dumps(shapes, indent=2, default=str))
@@ -490,4 +522,4 @@ except:
     print(traceback.format_exc())
 finally:
     # logger.logfile.close()
-    conn.close()
+    mysql_conn.close()

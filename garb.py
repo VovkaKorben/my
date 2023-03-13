@@ -169,3 +169,43 @@ while i < 91:
 # else:
 #     add_warn(f'VDM: unknown msgID={msg_id}')
 # pass
+
+
+   def parse_data(data, pattern):
+       dl = len(data)
+       pl = len(pattern)
+       result = pl >= dl
+       for i in range(min(dl, pl)):
+            is_lowercase = pattern[i] >= 'a'
+            char = pattern[i].lower()
+            v = data[i]
+            if char == 'c':  # character
+                if type(v) == str and len(v) > 0:
+                    v = v[0].lower()
+                else:
+                    v = None
+                    if not is_lowercase:
+                        result = False
+            elif char == 'i':  # integer
+                if type(v) == int or (type(v) == str and helpers.is_int(v)):
+                    v = int(v)
+                else:
+                    v = None
+                    if not is_lowercase:
+                        result = False
+            elif char == 'f':
+                if type(v) == float or (type(v) == str and helpers.is_float(v)):
+                    v = int(v)
+                else:
+                    v = None
+                    if not is_lowercase:
+                        result = False
+            elif char == 'n':
+                if type(v) == float or type(v) == int or (type(v) == str and (helpers.is_int(v) or helpers.is_float(v))):
+                    v = int(v)
+                else:
+                    v = None
+                    if not is_lowercase:
+                        result = False
+            data[i] = v
+        return {'valid': result, 'data': data}

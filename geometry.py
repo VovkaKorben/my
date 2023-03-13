@@ -119,8 +119,7 @@ def remove_duplicates(a):
         src_ptr += 1
     return ra
 
-def is_zero(v):
-    return  abs(v)<1e-6
+
 
 # for dx in range(1, 6):
 #     p1 = (1, 2)
